@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOGA ML Optimizer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>MOGA ML Optimizer</h1>
+            <p>Optimisation Multi-Objectif pour Random Forest</p>
+        </header>
+
+        <main>
+            <section class="config-panel">
+                <h2>Configuration</h2>
+                <form id="configForm">
+                    <div class="form-group">
+                        <label for="dataset">Dataset</label>
+                        <select id="dataset" name="dataset">
+                            <option value="digits">Digits (Chiffres)</option>
+                            <option value="iris">Iris (Fleurs)</option>
+                            <option value="wine">Wine (Vins)</option>
+                            <option value="breast_cancer">Breast Cancer (Médical)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ngen">Générations</label>
+                        <input type="number" id="ngen" name="ngen" value="5" min="1" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pop_size">Taille Population</label>
+                        <input type="number" id="pop_size" name="pop_size" value="20" min="5" max="200">
+                    </div>
+
+                    <button type="submit" id="runBtn">Lancer l'Optimisation</button>
+                </form>
+                <div id="status" class="status-message"></div>
+            </section>
+
+            <section class="results-panel">
+                <div class="chart-container">
+                    <canvas id="paretoChart"></canvas>
+                </div>
+
+                <div class="solutions-list">
+                    <div class="solutions-header">
+                        <h3>Meilleures Solutions (Front de Pareto)</h3>
+                        <button id="downloadBtn" class="btn-secondary" style="display: none;">
+                            Télécharger CSV
+                        </button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th>Précision</th>
+                                    <th>Temps (s)</th>
+                                    <th>Arbres</th>
+                                    <th>Profondeur</th>
+                                    <th>Split</th>
+                                    <th>Features</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Results will be injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+
+</html>
