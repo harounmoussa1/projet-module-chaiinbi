@@ -25,7 +25,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentGen: -1,
         totalGen: 0,
         paretoData: [],
-        allPoints: [] // Stocker tous les points pour ajuster les axes
+        generationPoints: [],
+        currentParetoFront: []
     };
 
     // Initialisation
@@ -104,15 +105,12 @@ document.addEventListener('DOMContentLoaded', () => {
             currentGen: -1,
             totalGen: 0,
             paretoData: [],
-            allPoints: []
+            generationPoints: [],
+            currentParetoFront: []
         };
         
         if (state.chart) {
             state.chart.data.datasets = [];
-            state.chart.options.scales.x.min = 0;
-            state.chart.options.scales.x.max = 10;
-            state.chart.options.scales.y.min = 0;
-            state.chart.options.scales.y.max = 1;
             state.chart.update();
         }
         
@@ -181,6 +179,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function startGeneration(data) {
         state.currentGen = data.generation;
         state.totalGen = data.total;
+        state.generationPoints = [];
         
         // Mettre à jour la progression
         const progress = (state.currentGen / state.totalGen) * 100;
@@ -202,8 +201,8 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.chartOverlay.style.display = 'none';
         }
         
-        // Stocker le point pour ajuster les axes
-        state.allPoints.push({
+        // Stocker le point
+        state.generationPoints.push({
             x: point.training_time,
             y: point.accuracy
         });
@@ -217,7 +216,10 @@ document.addEventListener('DOMContentLoaded', () => {
             y: point.accuracy
         });
         
-        // Ajuster automatiquement les axes
+        // Calculer et afficher le front de Pareto actuel
+        updateParetoFront();
+        
+        // Ajuster les axes
         adjustAxes();
         
         // Mettre à jour le graphique
@@ -234,14 +236,14 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Créer un nouveau dataset
         const colors = [
-            'rgba(96, 165, 250, 0.6)',
-            'rgba(139, 92, 246, 0.6)',
-            'rgba(16, 185, 129, 0.6)',
-            'rgba(245, 158, 11, 0.6)',
-            'rgba(239, 68, 68, 0.6)',
-            'rgba(168, 85, 247, 0.6)',
-            'rgba(6, 182, 212, 0.6)',
-            'rgba(251, 191, 36, 0.6)',
+            'rgba(96, 165, 250, 0.4)',
+            'rgba(139, 92, 246, 0.4)',
+            'rgba(16, 185, 129, 0.4)',
+            'rgba(245, 158, 11, 0.4)',
+            'rgba(239, 68, 68, 0.4)',
+            'rgba(168, 85, 247, 0.4)',
+            'rgba(6, 182, 212, 0.4)',
+            'rgba(251, 191, 36, 0.4)',
         ];
         
         const colorIndex = generation % colors.length;
@@ -251,9 +253,9 @@ document.addEventListener('DOMContentLoaded', () => {
             label: label,
             data: [],
             backgroundColor: colors[colorIndex],
-            borderColor: colors[colorIndex].replace('0.6', '1'),
-            pointRadius: 4,
-            pointHoverRadius: 7,
+            borderColor: colors[colorIndex].replace('0.4', '1'),
+            pointRadius: 3,
+            pointHoverRadius: 6,
             pointStyle: 'circle',
             showLine: false
         });
@@ -261,24 +263,115 @@ document.addEventListener('DOMContentLoaded', () => {
         return state.chart.data.datasets.length - 1;
     }
 
+    function updateParetoFront() {
+        if (state.generationPoints.length === 0) return;
+        
+        // Calculer le front de Pareto actuel
+        const paretoPoints = calculateParetoFront(state.generationPoints);
+        state.currentParetoFront = paretoPoints;
+        
+        // Trouver ou créer le dataset pour le front de Pareto
+        let datasetIndex = state.chart.data.datasets.findIndex(d => d.label === 'Front Pareto Actuel');
+        
+        if (datasetIndex === -1) {
+            datasetIndex = state.chart.data.datasets.length;
+            state.chart.data.datasets.push({
+                label: 'Front Pareto Actuel',
+                data: [],
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                pointRadius: 5,
+                pointHoverRadius: 9,
+                pointStyle: 'circle',
+                showLine: true,
+                fill: false,
+                tension: 0.1,
+                borderWidth: 2
+            });
+        }
+        
+        // Trier les points par temps croissant pour une ligne propre
+        const sortedPareto = [...paretoPoints].sort((a, b) => a.x - b.x);
+        
+        // Mettre à jour les données
+        state.chart.data.datasets[datasetIndex].data = sortedPareto.map(p => ({
+            x: p.x,
+            y: p.y
+        }));
+    }
+
+    function calculateParetoFront(points) {
+        if (points.length === 0) return [];
+        
+        const paretoFront = [];
+        
+        for (let i = 0; i < points.length; i++) {
+            let dominated = false;
+            const pointA = points[i];
+            
+            for (let j = 0; j < points.length; j++) {
+                if (i === j) continue;
+                
+                const pointB = points[j];
+                
+                // B domine A si B a une meilleure précision ET un temps inférieur ou égal
+                // OU un temps inférieur ET une précision supérieure ou égale
+                if ((pointB.y > pointA.y && pointB.x <= pointA.x) || 
+                    (pointB.x < pointA.x && pointB.y >= pointA.y)) {
+                    dominated = true;
+                    break;
+                }
+            }
+            
+            if (!dominated) {
+                paretoFront.push(pointA);
+            }
+        }
+        
+        return paretoFront;
+    }
+
     function adjustAxes() {
-        if (!state.chart || state.allPoints.length === 0) return;
+        if (!state.chart) return;
         
-        // Récupérer tous les points
-        const xValues = state.allPoints.map(p => p.x);
-        const yValues = state.allPoints.map(p => p.y);
+        // Récupérer tous les points de tous les datasets
+        const allPoints = [];
+        state.chart.data.datasets.forEach(dataset => {
+            dataset.data.forEach(point => {
+                allPoints.push(point);
+            });
+        });
         
-        // Calculer min/max avec marges
-        const xMin = Math.max(0, Math.min(...xValues) * 0.95);
-        const xMax = Math.max(...xValues) * 1.05;
-        const yMin = Math.max(0, Math.min(...yValues) * 0.95);
-        const yMax = Math.min(1, Math.max(...yValues) * 1.05);
+        if (allPoints.length === 0) return;
         
-        // Appliquer les ajustements
-        state.chart.options.scales.x.min = xMin;
-        state.chart.options.scales.x.max = xMax;
-        state.chart.options.scales.y.min = yMin;
-        state.chart.options.scales.y.max = yMax;
+        const xValues = allPoints.map(p => p.x);
+        const yValues = allPoints.map(p => p.y);
+        
+        // Calculer min/max avec marges adaptatives
+        const xMin = Math.max(0, Math.min(...xValues));
+        const xMax = Math.max(...xValues);
+        const yMin = Math.max(0, Math.min(...yValues));
+        const yMax = Math.min(1, Math.max(...yValues));
+        
+        // Marges adaptatives basées sur la plage
+        const xRange = xMax - xMin;
+        const yRange = yMax - yMin;
+        
+        const xMargin = Math.max(xRange * 0.1, 0.05);
+        const yMargin = Math.max(yRange * 0.1, 0.02);
+        
+        // Appliquer les ajustements avec marges
+        state.chart.options.scales.x.min = Math.max(0, xMin - xMargin);
+        state.chart.options.scales.x.max = xMax + xMargin;
+        state.chart.options.scales.y.min = Math.max(0, yMin - yMargin);
+        state.chart.options.scales.y.max = Math.min(1, yMax + yMargin);
+        
+        // Si la plage est très petite, zoomer plus
+        if (yRange < 0.1) {
+            const centerY = (yMin + yMax) / 2;
+            state.chart.options.scales.y.min = Math.max(0, centerY - 0.05);
+            state.chart.options.scales.y.max = Math.min(1, centerY + 0.05);
+        }
         
         state.chart.update();
     }
@@ -293,23 +386,23 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             if (!state.chart) return;
             
-            // EFFACER TOUS LES POINTS PRÉCÉDENTS
+            // Effacer tous les datasets sauf le front de Pareto final
             state.chart.data.datasets = [];
             
-            // Afficher SEULEMENT le front de Pareto
+            // Afficher le front de Pareto final
             if (results.pareto && results.pareto.length > 0) {
                 const sortedPareto = [...results.pareto].sort((a, b) => a.training_time - b.training_time);
                 
                 state.chart.data.datasets.push({
-                    label: 'Front de Pareto',
+                    label: 'Front de Pareto Final',
                     data: sortedPareto.map(p => ({
                         x: p.training_time,
                         y: p.accuracy
                     })),
                     backgroundColor: 'rgba(239, 68, 68, 0.9)',
                     borderColor: 'rgba(239, 68, 68, 1)',
-                    pointRadius: 8,
-                    pointHoverRadius: 12,
+                    pointRadius: 7,
+                    pointHoverRadius: 11,
                     pointStyle: 'circle',
                     showLine: true,
                     fill: false,
@@ -317,8 +410,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     borderWidth: 3
                 });
                 
-                // Ajuster les axes pour le front de Pareto seulement
-                adjustAxesForPareto(results.pareto);
+                // Ajuster les axes pour le front final
+                adjustAxesForFinalPareto(results.pareto);
             }
             
             // Mettre à jour le tableau
@@ -334,36 +427,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 500);
     }
 
-    function adjustAxesForPareto(paretoData) {
+    function adjustAxesForFinalPareto(paretoData) {
         if (!state.chart || paretoData.length === 0) return;
         
         const xValues = paretoData.map(p => p.training_time);
         const yValues = paretoData.map(p => p.accuracy);
         
-        // Calculer min/max avec bonnes marges pour le front de Pareto
-        const xMin = Math.max(0, Math.min(...xValues) * 0.9);
-        const xMax = Math.max(...xValues) * 1.1;
-        const yMin = Math.max(0, Math.min(...yValues) * 0.9);
-        const yMax = Math.min(1, Math.max(...yValues) * 1.1);
+        const xMin = Math.min(...xValues);
+        const xMax = Math.max(...xValues);
+        const yMin = Math.min(...yValues);
+        const yMax = Math.max(...yValues);
         
-        // S'assurer que les axes montrent une plage visible
-        if (yMax - yMin < 0.1) {
-            const center = (yMin + yMax) / 2;
-            state.chart.options.scales.y.min = Math.max(0, center - 0.05);
-            state.chart.options.scales.y.max = Math.min(1, center + 0.05);
-        } else {
-            state.chart.options.scales.y.min = yMin;
-            state.chart.options.scales.y.max = yMax;
-        }
+        // Marges généreuses pour bien voir le front de Pareto
+        const xMargin = Math.max((xMax - xMin) * 0.2, 0.1);
+        const yMargin = Math.max((yMax - yMin) * 0.2, 0.05);
         
-        if (xMax - xMin < 0.1) {
-            const center = (xMin + xMax) / 2;
-            state.chart.options.scales.x.min = Math.max(0, center - 0.05);
-            state.chart.options.scales.x.max = center + 0.05;
-        } else {
-            state.chart.options.scales.x.min = xMin;
-            state.chart.options.scales.x.max = xMax;
-        }
+        state.chart.options.scales.x.min = Math.max(0, xMin - xMargin);
+        state.chart.options.scales.x.max = xMax + xMargin;
+        state.chart.options.scales.y.min = Math.max(0, yMin - yMargin);
+        state.chart.options.scales.y.max = Math.min(1, yMax + yMargin);
         
         state.chart.update();
     }
