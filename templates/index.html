@@ -1,87 +1,187 @@
 <!DOCTYPE html>
 <html lang="fr">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MOGA ML Optimizer</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <title>Optimisation MOGA</title>
+    <link rel="stylesheet" href="/static/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-
 <body>
     <div class="container">
         <header>
-            <h1>MOGA ML Optimizer</h1>
-            <p>Optimisation Multi-Objectif pour Random Forest</p>
+            <h1 class="gradient-text">Optimisation MOGA</h1>
+            <p class="subtitle">Front de Pareto pour Random Forest</p>
         </header>
 
         <main>
-            <section class="config-panel">
-                <h2>Configuration</h2>
+            <!-- Panel de configuration -->
+            <div class="config-panel">
+                <div class="panel-header">
+                    <h2>Configuration</h2>
+                    <span class="panel-badge">Paramètres</span>
+                </div>
+                
                 <form id="configForm">
                     <div class="form-group">
-                        <label for="dataset">Dataset</label>
-                        <select id="dataset" name="dataset">
-                            <option value="digits">Digits (Chiffres)</option>
-                            <option value="iris">Iris (Fleurs)</option>
-                            <option value="wine">Wine (Vins)</option>
-                            <option value="breast_cancer">Breast Cancer (Médical)</option>
+                        <label>
+                            <span class="label-icon">📊</span>Dataset
+                        </label>
+                        <select name="dataset" class="select-box">
+                            <option value="digits">Digits</option>
+                            <option value="iris">Iris</option>
+                            <option value="wine">Wine</option>
+                            <option value="breast_cancer">Breast Cancer</option>
                         </select>
                     </div>
-
-                    <div class="form-group">
-                        <label for="ngen">Générations</label>
-                        <input type="number" id="ngen" name="ngen" value="5" min="1" max="100">
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <span class="label-icon">🔄</span>Générations
+                            </label>
+                            <input type="number" name="ngen" value="5" min="1" max="20" class="select-box">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <span class="label-icon">👥</span>Taille Population
+                            </label>
+                            <input type="number" name="pop_size" value="20" min="10" max="100" class="select-box">
+                        </div>
                     </div>
-
-                    <div class="form-group">
-                        <label for="pop_size">Taille Population</label>
-                        <input type="number" id="pop_size" name="pop_size" value="20" min="5" max="200">
-                    </div>
-
-                    <button type="submit" id="runBtn">Lancer l'Optimisation</button>
-                </form>
-                <div id="status" class="status-message"></div>
-            </section>
-
-            <section class="results-panel">
-                <div class="chart-container">
-                    <canvas id="paretoChart"></canvas>
-                </div>
-
-                <div class="solutions-list">
-                    <div class="solutions-header">
-                        <h3>Meilleures Solutions (Front de Pareto)</h3>
-                        <button id="downloadBtn" class="btn-secondary" style="display: none;">
-                            Télécharger CSV
+                    
+                    <div class="button-group">
+                        <button type="submit" id="runBtn" class="btn-primary">
+                            <span class="btn-icon">🚀</span>Lancer l'Optimisation
+                        </button>
+                        <button type="button" id="stopBtn" class="btn-stop" disabled>
+                            <span class="btn-icon">⏹️</span>Arrêter
                         </button>
                     </div>
-                    <div class="table-wrapper">
-                        <table id="resultsTable">
-                            <thead>
-                                <tr>
-                                    <th>Précision</th>
-                                    <th>Temps (s)</th>
-                                    <th>Arbres</th>
-                                    <th>Profondeur</th>
-                                    <th>Split</th>
-                                    <th>Features</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Results will be injected here -->
-                            </tbody>
-                        </table>
+                </form>
+                
+                <div class="status-container">
+                    <div id="status" class="status-message info">
+                        <span class="status-icon">👋</span>
+                        <span class="status-text">Prêt à lancer l'optimisation</span>
+                    </div>
+                    
+                    <div class="progress-container" style="display: none;">
+                        <div class="progress-header">
+                            <span>Progression</span>
+                            <span class="progress-percent" id="progressText">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
                     </div>
                 </div>
-            </section>
+            </div>
+            
+            <!-- Panel des résultats -->
+            <div class="results-panel">
+                <div class="panel-header">
+                    <h2>Visualisation en Temps Réel</h2>
+                    <span class="panel-badge">Graphique</span>
+                </div>
+                
+                <div class="phases-pipeline">
+                    <h3>Phases d'Optimisation</h3>
+                    <div class="phases-container">
+                        <div class="phase" id="phase-initialization" data-phase="1">
+                            <div class="phase-icon">1</div>
+                            <div class="phase-label">Initialisation</div>
+                            <div class="phase-dot"></div>
+                        </div>
+                        <div class="phase-line"></div>
+                        <div class="phase" id="phase-evaluation" data-phase="2">
+                            <div class="phase-icon">2</div>
+                            <div class="phase-label">Évaluation</div>
+                            <div class="phase-dot"></div>
+                        </div>
+                        <div class="phase-line"></div>
+                        <div class="phase" id="phase-model_update" data-phase="3">
+                            <div class="phase-icon">3</div>
+                            <div class="phase-label">Modèle</div>
+                            <div class="phase-dot"></div>
+                        </div>
+                        <div class="phase-line"></div>
+                        <div class="phase" id="phase-pareto" data-phase="4">
+                            <div class="phase-icon">4</div>
+                            <div class="phase-label">Pareto</div>
+                            <div class="phase-dot"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <h4>Front de Pareto - Temps vs Précision</h4>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgba(96, 165, 250, 0.8);"></div>
+                                <span>Générations</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background: rgba(239, 68, 68, 0.9);"></div>
+                                <span>Front Pareto</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="chartOverlay" class="chart-overlay">
+                        <div class="grid-line vertical" style="left: 50%;"></div>
+                        <div class="grid-line horizontal" style="top: 50%;"></div>
+                        <div class="axis-label y-axis">Précision</div>
+                        <div class="axis-label x-axis">Temps (s)</div>
+                    </div>
+                    
+                    <canvas id="paretoChart"></canvas>
+                </div>
+                
+                <div class="solutions-panel">
+                    <div class="panel-header">
+                        <h2>Solutions Pareto Optimales</h2>
+                        <span class="panel-badge">Top 15</span>
+                    </div>
+                    
+                    <div class="table-container">
+                        <div class="table-scroll">
+                            <table id="resultsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Précision</th>
+                                        <th>Temps</th>
+                                        <th>n_estimators</th>
+                                        <th>max_depth</th>
+                                        <th>min_samples_split</th>
+                                        <th>max_features</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="table-footer">
+                            <div class="results-count" id="resultsCount">0 solutions trouvées</div>
+                            <button id="downloadBtn" class="btn-secondary" style="display: none;">
+                                <span class="btn-icon">📥</span>Télécharger CSV
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
+        
+        <footer>
+            <div class="footer-content">
+                <p>Optimisation Multi-Objectif par Algorithme Génétique</p>
+                <p class="footer-hint">Les points s'affichent en temps réel pendant l'optimisation</p>
+            </div>
+        </footer>
     </div>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    
+    <script src="/static/js/script.js"></script>
 </body>
-
 </html>
